@@ -9,7 +9,16 @@ import {
   signOut,
   onAuthStateChanged,
 } from "firebase/auth";
-import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  writeBatch,
+  query,
+  getDocs,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD7pTFURaWcFLrB74jjpv-eTsVwurEk3yc",
@@ -35,6 +44,54 @@ export const signInWithGoogleRedirect = () =>
   signInWithRedirect(auth, provider);
 
 export const db = getFirestore();
+
+////////////////////////////////////////////////////////////////////////////////
+
+// Objective: upload data from js file into the firestore:
+export const addCollectionAndDocuments = async (
+  collectionKey,
+  objectsToAdd
+) => {
+  const collectionRef = collection(db, collectionKey);
+  const batch = writeBatch(db);
+
+  objectsToAdd.forEach((object) => {
+    const docRef = doc(collectionRef, object.title.toLowerCase());
+    batch.set(docRef, object);
+  });
+
+  await batch.commit();
+  console.log("done");
+};
+// the key is the name of the collection, such as "users" or "categories"
+// because we are adding to an external source, this needs to be async
+// collection(db, collectionKey) where db means "we are looking in the db" for the collection named "collectionKey"
+// conception of transaction = successfull unit of work to a database, but 1 transaction can include multiple rights.
+// make sure all of our objects are successfully added, that's when we use batch.
+
+////////////////////////////////////////////////////////////////////////////////
+
+// Objective: Get a Category Map:
+export const getCategoriesAndDocuments = async () => {
+  const collectionRef = collection(db, "categories");
+  const q = query(collectionRef); // generate a query off of this collectionRef
+  // this gives us an object that we can now get a snapshot from
+
+  const querySnapshot = await getDocs(q); // getDoc fetches the snapshot that we want
+  const categoryMap = querySnapshot.docs.reduce((acc, docSnapshot) => {
+    const { title, items } = docSnapshot.data();
+    acc[title.toLowerCase()] = items;
+    return acc;
+  }, {});
+
+  return categoryMap;
+};
+// reduce this array in order to end up with an object
+// acc is the accumulator, {} empty object is the starting value
+// querySnapshot.docs will give us an array of all of those individual documents inside,
+// and snapshots are the actual data inside
+
+////////////////////////////////////////////////////////////////////////////////
 
 export const createUserDocumentFromAuth = async (
   userAuth,
